@@ -1,1 +1,1 @@
-# Beholder-Identificar-EPI
+pip install -r .\requirements.ts
