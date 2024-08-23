@@ -2,8 +2,10 @@ from flask import Flask, Response
 from flask_cors import CORS
 import cv2
 
+from flask_cors import CORS
+
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/video_feed": {"origins": "*"}}) 
 
 
 def detect_bounding_box(frame):
