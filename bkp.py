@@ -2,10 +2,11 @@ from flask import Flask, Response
 from flask_cors import CORS
 import cv2
 
-app = Flask(__name__)
-CORS(app)
+from flask_cors import CORS
 
-camera_ip = "http://192.168.0.8:8080/video"
+app = Flask(__name__)
+CORS(app, resources={r"/video_feed": {"origins": "*"}}) 
+
 
 def detect_bounding_box(frame):
     gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -16,7 +17,7 @@ def detect_bounding_box(frame):
 
 
 def generate_frames():
-    video_capture = cv2.VideoCapture(camera_ip)
+    video_capture = cv2.VideoCapture(0)
     while True:
         success, frame = video_capture.read()
         if not success:
