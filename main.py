@@ -8,31 +8,38 @@ import sys
 import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'yolov5'))
-from yolov5.models.common import DetectMultiBackend
 
 app = Flask(__name__)
 CORS(app, resources={r"/video_feed": {"origins": "*"}})
 
 model = torch.hub.load('ultralytics/yolov5', 'custom', "best.pt", force_reload=True)
 
-def detect_bounding_box(frame, conf_threshold=0.6):
+def detect_bounding_box(frame, conf_threshold=0.8):
     results = model(frame)
-
-    # Filtra as detecções com base no conf_threshold
-    detections = results.pred[0]  # pred[0] contém as detecções da primeira imagem
-
+    detections = results.pred[0] 
     for *box, conf, cls in detections:
         if conf >= conf_threshold:
             # Desenha o retângulo ao redor do objeto detectado
             x1, y1, x2, y2 = map(int, box)
             label = f'{results.names[int(cls)]} {conf:.2f}'
 
+            # Escolhe a cor do retângulo baseado na classe
+            if label.startswith('sem_capacete') or label.startswith('sem_colete') or label.startswith('sem_bota'):
+                color = (0, 0, 255)  # Vermelho
+            elif label.startswith('capacete') or label.startswith('colete') or label.startswith('bota'):
+                color = (0, 255, 0)  # Verde
+            elif label.startswith('pessoa'):
+                color = (255, 0, 0)  # Azul
+            else:
+                color = (255, 255, 255)  # Branco para outros casos
+
             # Desenha o retângulo
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             # Adiciona o label acima do retângulo
-            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
     return frame
+
 
 def generate_frames():
     image_url = "http://192.168.15.123:8080/shot.jpg"  # URL para capturar a imagem estática
