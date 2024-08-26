@@ -15,3 +15,5 @@ exp13 - 10 epocas
 
 sudo apt-get install qt5-default
 pip install --upgrade opencv-python opencv-python-headless
+
+=============================================================================================================================================================

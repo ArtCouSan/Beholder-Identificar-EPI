@@ -42,7 +42,7 @@ def detect_bounding_box(frame, conf_threshold=0.8):
 
 
 def generate_frames():
-    image_url = "http://192.168.15.123:8080/shot.jpg"  # URL para capturar a imagem estática
+    image_url = "http://192.168.170.211:8080/shot.jpg"  # URL para capturar a imagem estática
 
     while True:
         # Captura a imagem da URL
@@ -69,4 +69,4 @@ def video_feed():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5000)
