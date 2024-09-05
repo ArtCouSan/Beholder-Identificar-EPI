@@ -5,3 +5,6 @@ flask-cors
 keras
 tensorflow
 requests
+transformers
+accelerate
+onnxruntime
