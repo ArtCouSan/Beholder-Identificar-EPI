@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/video_feed": {"origins": "*"}})
 
 # URL da API no Colab (obtenha o endereço da instância do Colab, que pode ser algo como https://<instance_id>.ngrok.io/process_image)
-colab_api_url = "https://e945-34-168-11-3.ngrok-free.app/process_image"
+colab_api_url = "https://2a6e-34-141-158-79.ngrok-free.app/process_image"
 
 def generate_frames():
     image_url = "http://192.168.15.123:8080/shot.jpg"  # URL para capturar a imagem estática

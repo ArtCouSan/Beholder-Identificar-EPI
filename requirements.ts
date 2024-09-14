@@ -8,3 +8,5 @@ requests
 transformers
 accelerate
 onnxruntime
+pymongo
+openai
