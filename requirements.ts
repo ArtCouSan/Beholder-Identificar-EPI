@@ -10,3 +10,4 @@ accelerate
 onnxruntime
 pymongo
 openai
+python-vlc
