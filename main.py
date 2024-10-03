@@ -10,9 +10,14 @@ import time
 import base64
 from pymongo import MongoClient
 from datetime import datetime
-from openai import OpenAI
+import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'yolov5'))
+
+ip = "192.168.56.1"
+
+telegram_token = "7696933448:AAHRSUGvQDgp_58Lte8v0POTemTDtjuiS4g"
+chat_id = 937251721  # Seu chat_id do Telegram
 
 app = Flask(__name__)
 CORS(app)
@@ -23,14 +28,14 @@ CORS(app)
 # )
 
 # Configuração da conexão com MongoDB
-client = MongoClient('mongodb://192.168.56.1:27017/')
+client = MongoClient(f'mongodb://{ip}:27017/')
 db = client['epi_database']  # Nome do banco de dados
 collection = db['detections']  # Nome da coleção
 
 model = torch.hub.load('ultralytics/yolov5', 'custom', "best.pt", force_reload=True)
 
 last_saved_time = 0  # Armazena o tempo do último salvamento da imagem (em segundos)
-segundos = 30
+segundos = 15
 
 # # Função para validar a detecção com OpenAI
 # def validate_with_openai(image_base64, detections):
@@ -47,6 +52,42 @@ segundos = 30
     
 #     # Retorna a resposta da OpenAI
 #     return completion.choices[0].message.content.strip()
+
+# Função para enviar uma mensagem ao Telegram via HTTP request
+def send_telegram_alert(detection_list):
+    """
+    Envia uma mensagem ao Telegram sobre o que foi detectado.
+    """
+    for detection in detection_list:
+        detectado = False
+        if detection['class'] == 'sem_capacete':
+            message = "⚠️ Alerta! Funcionário identificado **sem capacete**."
+            detectado = True
+        # elif detection['class'] == 'sem_colete':
+        #     message = "⚠️ Alerta! Funcionário identificado **sem colete**."
+        #     detectado = True
+        # elif detection['class'] == 'sem_bota':
+        #     message = "⚠️ Alerta! Funcionário identificado **sem bota**."
+        #     detectado = True
+        else:
+            message = f"Funcionário detectado com **{detection['class']}**. Confiança: {detection['confidence']:.2f}"
+            detectado = False
+
+        if detectado:
+            url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+            payload = {
+                "chat_id": chat_id,
+                "text": message
+            }
+
+            try:
+                response = requests.post(url, data=payload)
+                if response.status_code == 200:
+                    print(f"Mensagem enviada ao Telegram: {message}")
+                else:
+                    print(f"Falha ao enviar mensagem. Status Code: {response.status_code}, Response: {response.text}")
+            except Exception as e:
+                print(f"Erro ao enviar mensagem ao Telegram: {e}")
 
 # Função para salvar no MongoDB
 def save_image_to_mongodb(frame, detection_data):
@@ -65,8 +106,10 @@ def save_image_to_mongodb(frame, detection_data):
     collection.insert_one(document)
     print(f"Imagem salva no MongoDB com as detecções: {detection_data}")
 
+    send_telegram_alert(detection_data)
+
 # Função que realiza a detecção e faz o filtro com a OpenAI
-def detect_bounding_box(frame, conf_threshold=0.8):
+def detect_bounding_box(frame, conf_threshold=0.75):
     global last_saved_time
     results = model(frame)
     detections = results.pred[0]
@@ -74,6 +117,7 @@ def detect_bounding_box(frame, conf_threshold=0.8):
     should_save_image = False
 
     for *box, conf, cls in detections:
+
         if conf >= conf_threshold:
             # Desenha o retângulo ao redor do objeto detectado
             x1, y1, x2, y2 = map(int, box)
@@ -85,7 +129,7 @@ def detect_bounding_box(frame, conf_threshold=0.8):
             detection_list.append(detection_data)
 
             # Se detectar "sem_capacete", "sem_colete" ou "sem_bota", marcamos para salvar
-            if label.startswith('sem_capacete') or label.startswith('sem_colete') or label.startswith('sem_bota'):
+            if label.startswith('sem_capacete'):
                 should_save_image = True
 
             # Escolhe a cor do retângulo baseado na classe
@@ -120,6 +164,7 @@ def detect_bounding_box(frame, conf_threshold=0.8):
 
         # Se a OpenAI confirmar a detecção, salva a imagem no MongoDB
         # if "Sim" in validation_result: 
+        print("Salva imagem")
         save_image_to_mongodb(frame, detection_list)
         last_saved_time = current_time
         # else:
@@ -128,7 +173,7 @@ def detect_bounding_box(frame, conf_threshold=0.8):
     return frame, detection_list
 
 def generate_frames():
-    image_url = "http://192.168.56.1:5001/snapshot"  # URL para capturar a imagem estática
+    image_url = f"http://{ip}:5001/snapshot"  # URL para capturar a imagem estática
 
     while True:
         # Captura a imagem da URL
@@ -154,7 +199,7 @@ def video_feed():
 
 @app.route('/detections')
 def detections():
-    image_url = "http://192.168.56.1:5001/snapshot"  # URL para capturar a imagem estática
+    image_url = f"http://{ip}:5001/snapshot"  # URL para capturar a imagem estática
 
     # Captura a imagem da URL
     img_resp = urllib.request.urlopen(image_url)
