@@ -12,3 +12,4 @@ pymongo
 openai
 python-vlc
 python-telegram-bot
+roboflow

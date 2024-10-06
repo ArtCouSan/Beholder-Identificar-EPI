@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 # Configuração do VLC
 player = vlc.Instance()
-media = player.media_new("rtsp://admin:beholder2024@192.168.173.64:554/onvif1")
+media = player.media_new("rtsp://admin:beholder2024@192.168.15.46:554/onvif1")
 media_player = player.media_player_new()
 media_player.set_media(media)
 media_player.play()
