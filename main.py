@@ -1,6 +1,5 @@
 from flask import Flask, Response, jsonify
 from flask_cors import CORS
-import torch
 import numpy as np
 import cv2
 import urllib.request
@@ -16,6 +15,7 @@ import threading
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'yolov5'))
 
+ip_lampada = "192.168.15.156"
 ip = "192.168.56.1"
 
 telegram_token = "7696933448:AAHRSUGvQDgp_58Lte8v0POTemTDtjuiS4g"
@@ -39,6 +39,41 @@ collection = db['detections']  # Nome da coleção
 # model = torch.hub.load('ultralytics/yolov5', 'custom', "best.pt", force_reload=True)
 
 segundos = 30
+
+# Variável para controlar o estado da lâmpada
+lampada_acessa = False  # Inicialmente, a lâmpada está apagada
+
+# Função para acender a lâmpada via REST
+def acender_lampada():
+    global lampada_acessa
+    if not lampada_acessa:  # Só acende se estiver apagada
+        try:
+            requests.get(f"http://{ip_lampada}/apagar")
+            print("Lâmpada acesa.")
+            lampada_acessa = True  # Atualiza o estado da lâmpada
+        except Exception as e:
+            print(f"Erro ao acender a lâmpada: {e}")
+
+# Função para apagar a lâmpada via REST
+def apagar_lampada():
+    global lampada_acessa
+    if lampada_acessa:  # Só apaga se estiver acesa
+        try:
+            requests.get(f"http://{ip_lampada}/acender")
+            print("Lâmpada apagada.")
+            lampada_acessa = False  # Atualiza o estado da lâmpada
+        except Exception as e:
+            print(f"Erro ao apagar a lâmpada: {e}")
+
+# Função para verificar as últimas detecções e decidir se a lâmpada deve ser apagada
+def verificar_e_apagar_lampada(detection_list):
+    global lampada_acessa
+    inconsistencias = any(d['class'] in ['sem_capacete', 'sem_colete'] for d in detection_list)
+
+    if not inconsistencias and lampada_acessa:  # Se não houver inconsistências e a lâmpada estiver acesa
+        apagar_lampada()  # Apaga a lâmpada
+    elif inconsistencias and not lampada_acessa:  # Se houver inconsistências e a lâmpada estiver apagada
+        acender_lampada()  # Acende a lâmpada
 
 # Variável global para armazenar o tempo do último envio ao Telegram
 last_telegram_time = 0  # Armazena o tempo do último envio ao Telegram (em segundos)
@@ -128,7 +163,6 @@ def detect_bounding_box(frame, conf_threshold=0.75):
     result = model.predict(temp_image_path_original, confidence=conf_threshold * 100, overlap=30).json()
     
     detection_list = []  # Inicializa corretamente a lista de detecções
-    
     should_save_image = False
 
     # Processa as detecções e desenha as bordas
@@ -151,6 +185,7 @@ def detect_bounding_box(frame, conf_threshold=0.75):
             # Se detectar "sem_capacete", "sem_colete" ou "sem_bota", marcamos para salvar
             if detection['class'] == 'sem_capacete':
                 should_save_image = True
+                algo_errado_detectado = True
 
             # Escolhe a cor do retângulo baseado na classe
             if detection['class'] == 'sem_capacete' or detection['class'] == 'sem_colete':
@@ -186,6 +221,9 @@ def detect_bounding_box(frame, conf_threshold=0.75):
         thread.start()
         # Atualiza o tempo do último salvamento no MongoDB
         last_saved_time = current_time
+
+    # Lógica da lâmpada:
+    verificar_e_apagar_lampada(detection_list) 
     
     return frame, detection_list
 
